@@ -1,0 +1,338 @@
+// Pulse360 PKG — MVP schema
+// Simplified from the full PKG Architecture spec: tables that need ACID + structured queries
+// live here (Postgres-shaped). Time-series + graph traversals would move to ClickHouse/Neo4j
+// in production, but for the pilot a single relational store is sufficient.
+//
+// Uses SQLite by default for zero-install local dev. Swap `provider = "postgresql"` and
+// update DATABASE_URL for the pilot deployment — schema is portable.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------- Identity & Org --------
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  region       String   // KSA, UAE, ...
+  createdAt    DateTime @default(now())
+  persons      Person[]
+  cycles       Cycle[]
+  biasPatterns BiasPattern[]
+  audit        AuditEntry[]
+}
+
+model Person {
+  id             String   @id @default(cuid())
+  tenantId       String
+  fullName       String
+  preferredName  String?
+  email          String   @unique
+  preferredLang  String   @default("en") // en | ar
+  role           String   // PRD persona role: employee | manager | hrbp | hr_admin
+  jobTitle       String
+  department     String
+  managerId      String?
+  hiredAt        DateTime
+  // Sensitive — in production these would be field-level encrypted (PRD 8.3)
+  gender         String?
+  nationality    String?
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  manager        Person?  @relation("ManagerReports", fields: [managerId], references: [id])
+  directs        Person[] @relation("ManagerReports")
+
+  achievements          Achievement[]
+  feedbackReceived      FeedbackEvent[]   @relation("RatedPerson")
+  feedbackGiven         FeedbackEvent[]   @relation("RaterPerson")
+  taskAssignments       TaskAssignment[]
+  cycleScores           CycleScore[]
+  twinBriefs            TwinAdvocateBrief[]
+  collaborationsAsA     Collaboration[]   @relation("CollabA")
+  collaborationsAsB     Collaboration[]   @relation("CollabB")
+  managerJustifications ManagerJustification[]
+  discrepancyFlags      DiscrepancyFlag[] @relation("FlagPerson")
+
+  @@index([tenantId, role])
+  @@index([managerId])
+}
+
+// -------- Cycle --------
+
+model Cycle {
+  id        String   @id @default(cuid())
+  tenantId  String
+  label     String   // "H1 2026"
+  startsAt  DateTime
+  endsAt    DateTime
+  status    String   // OPEN | CALIBRATION | LOCKED | ARCHIVED
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  scores    CycleScore[]
+  briefs    TwinAdvocateBrief[]
+
+  @@unique([tenantId, label])
+}
+
+// -------- Work graph --------
+
+model Project {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  startedAt DateTime
+  closedAt  DateTime?
+  status    String   // active | closed
+
+  tasks     Task[]
+}
+
+model Task {
+  id           String   @id @default(cuid())
+  tenantId     String
+  externalId   String   // "TASK-4827"
+  title        String
+  status       String   // open | closed
+  priority     Int      @default(2)
+  createdAt    DateTime
+  closedAt     DateTime?
+  qaScore      Float?
+  deadlineMet  Boolean?
+  projectId    String?
+
+  project      Project? @relation(fields: [projectId], references: [id])
+  assignments  TaskAssignment[]
+
+  @@index([tenantId, closedAt])
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String
+  personId   String
+  roleOnTask String   // owner | reviewer | contributor
+  assignedAt DateTime
+
+  task       Task     @relation(fields: [taskId], references: [id])
+  person     Person   @relation(fields: [personId], references: [id])
+
+  @@index([personId])
+}
+
+// -------- Collaboration (derived edge for VCN) --------
+
+model Collaboration {
+  id                   String  @id @default(cuid())
+  tenantId             String
+  cycleId              String
+  personAId            String
+  personBId            String
+  interactionStrength  Float   // 0..10
+  evidenceCount        Int
+  sharedProjects       String  // comma-separated names (denormalized for read speed)
+
+  personA  Person @relation("CollabA", fields: [personAId], references: [id])
+  personB  Person @relation("CollabB", fields: [personBId], references: [id])
+
+  @@unique([cycleId, personAId, personBId])
+  @@index([cycleId, personAId])
+}
+
+// -------- Pulse360 core --------
+
+// Live (continuously updated) score
+model LivePulse {
+  personId      String   @id
+  liveScore     Float
+  delta24h      Float    @default(0)
+  delta7d       Float    @default(0)
+  recomputedAt  DateTime
+}
+
+// Locked formal score for a cycle (Manager 30 + CrossFn 30 + Self 20 + Achievement 20)
+model CycleScore {
+  id                       String   @id @default(cuid())
+  cycleId                  String
+  personId                 String
+  managerEval              Float    // 0..30
+  crossFunctionalEval      Float    // 0..30
+  selfAppraisal            Float    // 0..20
+  achievementPoints        Float    // 0..20
+  selfAwarenessMultiplier  Float    @default(0) // 0..2 (within Self cap)
+  totalScore               Float
+  calibrationConfidence    Int      // 0..100
+  componentEvidence        String   // JSON: { criterionKey: [eventId, ...] }
+  computedAt               DateTime
+  lockedAt                 DateTime?
+  signedOffBy              String?
+
+  cycle  Cycle  @relation(fields: [cycleId], references: [id])
+  person Person @relation(fields: [personId], references: [id])
+
+  @@unique([cycleId, personId])
+  @@index([cycleId, totalScore])
+}
+
+model Achievement {
+  id              String   @id @default(cuid())
+  tenantId        String
+  personId        String
+  cycleId         String
+  category        String   // project_milestone | process_improvement | cross_functional_leadership | peer_witnessed | exceptional_performance
+  proposedPoints  Int      // 1..5
+  awardedPoints   Int?
+  status          String   // PROPOSED | EMPLOYEE_CONFIRMED | MANAGER_CONFIRMED | REJECTED | SKIPPED
+  source          String   // AAD | SELF | MANAGER | PEER_WITNESSED
+  description     String
+  language        String   @default("en")
+  evidenceEvents  String   // JSON array of event refs (taskId, mention etc.) with summaries
+  twinConfidence  Float    @default(0.7) // 0..1
+  proposedAt      DateTime
+  confirmedAt     DateTime?
+  managerId       String?
+
+  person  Person  @relation(fields: [personId], references: [id])
+
+  @@index([cycleId, personId])
+  @@index([personId, status])
+}
+
+model FeedbackEvent {
+  id              String   @id @default(cuid())
+  tenantId        String
+  cycleId         String
+  ratedPersonId   String
+  raterPersonId   String   // stored for HR audit; UI never shows to peers (anonymised at read)
+  context         String   // project_close | sprint_close | milestone
+  contextRefId    String?
+  dimension       String   // team_spirit | responsiveness | professionalism | cross_dept_support
+  rating          Int      // 1..5
+  voiceNoteRef    String?
+  weight          Float    @default(1)
+  vcnVerified     Boolean  @default(true)
+  occurredAt      DateTime
+
+  rated   Person  @relation("RatedPerson", fields: [ratedPersonId], references: [id])
+  rater   Person  @relation("RaterPerson", fields: [raterPersonId], references: [id])
+
+  @@index([cycleId, ratedPersonId])
+}
+
+// -------- Self-Appraisal (20 pts, T2 deck p.6) --------
+
+model SelfAppraisal {
+  id                  String   @id @default(cuid())
+  cycleId             String
+  personId            String
+  language            String   @default("en")
+  transcriptRef       String   // pointer to encrypted transcript (voice path, Phase 2)
+  scoredCriteria      String   // JSON: { answers, score, promptVersion, total }
+  selfAwarenessMult   Float    @default(0)
+  reflectionBriefRef  String
+  completedAt         DateTime @default(now())
+
+  @@unique([cycleId, personId])
+}
+
+// -------- Manager calibration --------
+
+// Per-criterion manager adjustment captured during calibration
+model ManagerJustification {
+  id            String   @id @default(cuid())
+  cycleId       String
+  personId      String   // the rated person
+  managerId     String
+  criterion     String   // task_completion_quality | technical_competency | output_excellence | deadline_adherence | role_specific
+  systemScore   Float
+  managerScore  Float
+  delta         Float
+  justification String?  // required when |delta| > 2
+  createdAt     DateTime @default(now())
+
+  manager  Person  @relation(fields: [managerId], references: [id])
+
+  @@index([cycleId, personId])
+}
+
+// -------- AI / Integrity surfaces --------
+
+model TwinAdvocateBrief {
+  id              String   @id @default(cuid())
+  cycleId         String
+  personId        String
+  topAchievements String   // JSON: [{ summary, points }]
+  peerSummary     String   // narrative
+  growthSignals   String   // JSON: [text...]
+  flagged         String   // JSON: counter-evidence array
+  promptVersion   String
+  generatedAt     DateTime @default(now())
+
+  cycle  Cycle  @relation(fields: [cycleId], references: [id])
+  person Person @relation(fields: [personId], references: [id])
+
+  @@unique([cycleId, personId])
+}
+
+model DiscrepancyFlag {
+  id            String   @id @default(cuid())
+  cycleId       String
+  personId      String
+  managerId     String
+  criterion     String
+  systemScore   Float
+  managerScore  Float
+  delta         Float
+  severity      String   // LOW | MEDIUM | HIGH
+  createdAt     DateTime @default(now())
+
+  person  Person  @relation("FlagPerson", fields: [personId], references: [id])
+}
+
+model BiasPattern {
+  id           String   @id @default(cuid())
+  tenantId     String
+  detectedAt   DateTime @default(now())
+  axis         String   // gender | nationality | age_band | ...
+  scope        String   // department | manager | peer_cluster
+  scopeRef     String
+  scopeLabel   String   // human-readable e.g. "Marketing"
+  criterion    String?  // e.g. professionalism
+  effectSize   Float    // signed delta in raw score points
+  ciLow        Float
+  ciHigh       Float
+  sampleSize   Int
+  pValue       Float
+  severity     String   // LOW | MEDIUM | HIGH
+  explanations String   // JSON: { neutral, cautious, urgent }
+  recommended  String
+  status       String   @default("OPEN") // OPEN | ACK | INVESTIGATING | RESOLVED
+  hrNote       String?
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+// Immutable audit log — every sensitive read/write
+model AuditEntry {
+  id         String   @id @default(cuid())
+  tenantId   String
+  actorId    String
+  actorRole  String
+  action     String   // READ_SCORE | WRITE_JUSTIFICATION | GENERATE_BRIEF | EXPORT_PKG ...
+  subjectKind String
+  subjectId  String
+  occurredAt DateTime @default(now())
+  context    String?  // JSON freeform
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, occurredAt])
+  @@index([subjectKind, subjectId])
+}

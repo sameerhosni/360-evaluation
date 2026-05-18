@@ -1,26 +1,293 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Ink (deep navy — used for text on light surfaces) */
+  --color-ink-950: #070C19;
+  --color-ink-900: #0F1E3D;
+  --color-ink-800: #152849;
+  --color-ink-700: #1F2F58;
+  --color-ink-600: #293E73;
+  --color-ink-500: #5F6F95;
+  --color-ink-400: #8B96A8;
+  --color-ink-300: #B0BACA;
+  --color-ink-200: #D5DBE5;
+  --color-ink-100: #EBEEF3;
+  --color-ink-50:  #F4F6FB;
+
+  /* Gold (primary brand accent — used sparingly for CTAs and brand) */
+  --color-gold-700: #876D38;
+  --color-gold-600: #A88A4D;
+  --color-gold-500: #C9A961;
+  --color-gold-400: #D9BD7A;
+  --color-gold-300: #E8CB7E;
+  --color-gold-200: #F2DEA8;
+  --color-gold-100: #F9EDD0;
+  --color-gold-50:  #FCF7E8;
+
+  /* Sky (secondary cool accent) */
+  --color-sky-700: #1F4A99;
+  --color-sky-600: #2F60BB;
+  --color-sky-500: #4F7FD9;
+  --color-sky-400: #7AA0E8;
+  --color-sky-100: #DDE7F8;
+  --color-sky-50:  #EEF3FC;
+
+  /* Semantic */
+  --color-good-700: #1F7A4A;
+  --color-good-600: #2F9A60;
+  --color-good-500: #3FB87A;
+  --color-good-100: #D8F0E2;
+  --color-good-50:  #ECF8F1;
+
+  --color-warn-700: #966515;
+  --color-warn-600: #BF8120;
+  --color-warn-500: #E5A33F;
+  --color-warn-100: #FCEED4;
+  --color-warn-50:  #FDF7EA;
+
+  --color-bad-700: #8A2A33;
+  --color-bad-600: #B83943;
+  --color-bad-500: #D24A55;
+  --color-bad-100: #F8DADE;
+  --color-bad-50:  #FCEDEF;
+
+  /* Surface (the warm off-white page background) */
+  --color-surface-100: #FFFFFF;          /* cards */
+  --color-surface-75:  #FBFAF6;          /* between cards */
+  --color-surface-50:  #F7F5EE;          /* page bg — warm off-white */
+
+  /* Fonts (bridged from next/font variables on <html>) */
+  --font-display: var(--font-fraunces), "Fraunces", Georgia, serif;
+  --font-sans: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  --font-ar: var(--font-cairo), "Cairo", sans-serif;
+  --font-mono: var(--font-jbm), "JetBrains Mono", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background: var(--color-surface-50);
+  }
+  body {
+    background: var(--color-surface-50);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.font-display { font-family: var(--font-display); font-variation-settings: "opsz" 144; }
+.font-ar { font-family: var(--font-ar); }
+.font-mono { font-family: var(--font-mono); }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--color-surface-100);
+  border: 1px solid color-mix(in srgb, var(--color-ink-900) 8%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 30, 61, 0.04);
+}
+.card-hover:hover {
+  border-color: color-mix(in srgb, var(--color-ink-900) 14%, transparent);
+  box-shadow: 0 4px 12px rgba(15, 30, 61, 0.06);
+}
+
+/* ---------- Surfaces / dividers ---------- */
+.divide-soft > * + * {
+  border-top: 1px solid color-mix(in srgb, var(--color-ink-900) 8%, transparent);
+}
+.border-soft {
+  border-color: color-mix(in srgb, var(--color-ink-900) 8%, transparent) !important;
+}
+
+/* ---------- Eyebrow / labels ---------- */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-gold-700);
+}
+.eyebrow-muted {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+/* ---------- Chip ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--color-ink-50);
+  border: 1px solid color-mix(in srgb, var(--color-ink-900) 10%, transparent);
+  color: var(--color-ink-700);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+/* ---------- Buttons (primitives — Tailwind handles the rest) ---------- */
+.btn-primary {
+  background: var(--color-gold-600);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+.btn-primary:hover { background: var(--color-gold-700); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-ink-800);
+  border: 1px solid color-mix(in srgb, var(--color-ink-900) 14%, transparent);
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 13px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.btn-secondary:hover {
+  background: var(--color-ink-50);
+  border-color: color-mix(in srgb, var(--color-ink-900) 20%, transparent);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-ink-500);
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.btn-ghost:hover { color: var(--color-ink-900); background: var(--color-ink-50); }
+
+/* ---------- Dimension bar ---------- */
+.dim-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-ink-100);
+  position: relative;
+  overflow: hidden;
+}
+.dim-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-sky-500), var(--color-gold-500));
+  transition: width 0.4s ease;
+}
+.dim-fill.warm { background: linear-gradient(90deg, var(--color-gold-500), var(--color-gold-400)); }
+.dim-fill.cool { background: linear-gradient(90deg, var(--color-sky-600), var(--color-sky-400)); }
+
+/* ---------- Calibration slider ---------- */
+.slider-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-ink-100);
+}
+.slider-anchor {
+  position: absolute;
+  top: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-gold-500);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 0 1px var(--color-gold-700);
+  transform: translateX(-50%);
+}
+.slider-value {
+  position: absolute;
+  top: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 3px solid var(--color-ink-900);
+  box-shadow: 0 2px 6px rgba(15, 30, 61, 0.15);
+  transform: translateX(-50%);
+}
+.slider-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-gold-100);
+  border-radius: 999px;
+}
+
+/* ---------- Interactive range input (transparent, only used for hit area) ---------- */
+.range-invisible {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+}
+.range-invisible::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  cursor: grab;
+}
+.range-invisible::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  cursor: grab;
+}
+.range-invisible:active::-webkit-slider-thumb { cursor: grabbing; }
+.range-invisible:active::-moz-range-thumb { cursor: grabbing; }
+
+/* ---------- Score ring breathing — kept; meaning is "performance is alive" ---------- */
+@keyframes breath {
+  0%,100% { opacity: 0.95; transform: scale(1); }
+  50%     { opacity: 1;    transform: scale(1.008); }
+}
+.breath { animation: breath 5s ease-in-out infinite; transform-origin: center; }
+
+/* ---------- Twin avatar accent (subtle, no longer pulsing everywhere) ---------- */
+@keyframes twin-glow {
+  0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold-500) 30%, transparent); }
+  50%     { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-gold-500) 0%, transparent); }
+}
+.twin-glow { animation: twin-glow 3s ease-in-out infinite; }
+
+/* ---------- RTL helper ---------- */
+.rtl { direction: rtl; }
+
+html { scroll-behavior: smooth; }
+
+/* Focus outline */
+*:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+
+/* Number badge */
+.num-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-ink-900);
+  color: #FFFFFF;
 }
