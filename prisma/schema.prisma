@@ -3,15 +3,15 @@
 // live here (Postgres-shaped). Time-series + graph traversals would move to ClickHouse/Neo4j
 // in production, but for the pilot a single relational store is sufficient.
 //
-// Uses SQLite by default for zero-install local dev. Swap `provider = "postgresql"` and
-// update DATABASE_URL for the pilot deployment — schema is portable.
+// Postgres for the pilot deployment (Neon/Vercel Postgres). For zero-install local dev
+// you can swap `provider = "sqlite"` and set DATABASE_URL="file:./dev.db" — schema is portable.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
