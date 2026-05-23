@@ -1,16 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { clearPersonaCookie, type Persona, roleLabel } from "@/lib/session";
+import { SignOutButton } from "@clerk/nextjs";
+import { type Persona, roleLabel } from "@/lib/session";
 import { Avatar } from "@/components/ui";
 import { TwinChatDrawer } from "@/components/twin-chat-drawer";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { currentLocale, t, tNode } from "@/lib/i18n";
-
-async function signOut() {
-  "use server";
-  await clearPersonaCookie();
-  redirect("/");
-}
 
 export async function AppShell({
   me,
@@ -78,15 +72,15 @@ export async function AppShell({
               <div className={`text-[11px] text-ink-400 ${locale === "ar" ? "font-ar" : ""}`}>{localizedRole}</div>
             </div>
             <Avatar name={me.fullName} role={me.role} size={36} />
-            <form action={signOut}>
+            <SignOutButton redirectUrl="/sign-in">
               <button
-                type="submit"
+                type="button"
                 className={`btn-ghost text-[12px] px-3 py-2 ${locale === "ar" ? "font-ar" : ""}`}
-                title={t(locale, "common.switch")}
+                title={t(locale, "common.signOut")}
               >
-                {t(locale, "common.switch")}
+                {t(locale, "common.signOut")}
               </button>
-            </form>
+            </SignOutButton>
           </div>
         </div>
       </header>

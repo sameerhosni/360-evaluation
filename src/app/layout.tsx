@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope, Cairo, JetBrains_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { currentLocale, isRtl } from "@/lib/i18n";
 import "./globals.css";
 
@@ -36,14 +37,16 @@ export default async function RootLayout({
   const locale = await currentLocale();
   const dir = isRtl(locale) ? "rtl" : "ltr";
   return (
-    <html
-      lang={locale}
-      dir={dir}
-      className={`${fraunces.variable} ${manrope.variable} ${cairo.variable} ${jbm.variable} h-full`}
-    >
-      <body className={`min-h-full antialiased bg-surface-50 text-ink-900 ${locale === "ar" ? "font-ar" : ""}`}>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang={locale}
+        dir={dir}
+        className={`${fraunces.variable} ${manrope.variable} ${cairo.variable} ${jbm.variable} h-full`}
+      >
+        <body className={`min-h-full antialiased bg-surface-50 text-ink-900 ${locale === "ar" ? "font-ar" : ""}`}>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

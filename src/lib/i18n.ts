@@ -41,6 +41,7 @@ const DICT = {
     },
     common: {
       switch: "Switch",
+      signOut: "Sign out",
       submit: "Submit",
       save: "Save",
       saveDraft: "Save draft",
@@ -425,6 +426,7 @@ const DICT = {
     },
     common: {
       switch: "تبديل",
+      signOut: "تسجيل الخروج",
       submit: "إرسال",
       save: "حفظ",
       saveDraft: "حفظ المسودة",
